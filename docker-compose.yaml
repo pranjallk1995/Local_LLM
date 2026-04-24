@@ -1,0 +1,45 @@
+services:
+
+  ollama-serve:
+    image: ollama/ollama:0.19.0-rc0
+    container_name: ollama-serve
+    networks:
+      - ollama-network
+    ports:
+      - 18888:11434
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    # idk y need to attach and then start the model
+    # command: ["ollama", "run", "llama3"]
+
+  ollama-app:
+    container_name: ollama-app
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: unless-stopped
+    ports:
+      - 18890:8501
+    networks:
+      - ollama-network
+    volumes:
+        - ./app:/app
+    command: ["uv", "run", "python3", "-m", "streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+networks:
+  ollama-network:
+    name: ollama-network
+    driver: bridge
+    external: true
